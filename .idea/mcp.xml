@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- JetBrains IDE MCP server configuration -->
 <!-- Place this file in your project .idea/ directory -->
+<!-- If RESOLVR_API_KEY is set on the server, this client needs to send
+     Authorization: Bearer <key> on every request. Check your JetBrains IDE's
+     current MCP client version for how it exposes custom headers (this varies
+     by release) — see the README's Security section for details. -->
 <project version="4">
   <component name="McpServersConfiguration">
     <mcpServers>

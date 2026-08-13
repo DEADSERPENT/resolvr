@@ -129,4 +129,39 @@ class GitHubRestClientTest {
         assertThrows(RuntimeException.class,
                 () -> client.getFileContent("octocat", "hello-world", "main", "Broken.java"));
     }
+
+    // ─── Worst case: concurrent edit (stale sha) ───────────────────────────────
+
+    @Test
+    void commitFileChange_staleSha409_throwsClearConflictMessage() throws Exception {
+        startServer();
+        stub("GET", "/repos/octocat/hello-world/contents/Foo.java", 200, "{\"sha\":\"old-sha\"}");
+        stub("PUT", "/repos/octocat/hello-world/contents/Foo.java", 409,
+                "{\"message\":\"foo.java does not match old-sha\"}");
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+                client.commitFileChange("octocat", "hello-world", "main",
+                        "Foo.java", "new content", "fix: x"));
+
+        assertTrue(ex.getMessage().contains("stale sha"), "must explain what went wrong: " + ex.getMessage());
+        assertTrue(ex.getMessage().contains("get_file_content"), "must tell the caller how to recover: " + ex.getMessage());
+        assertInstanceOf(GitHubApiException.class, ex.getCause(), "original GitHub error must be preserved as cause");
+    }
+
+    // ─── Worst case: file too large for the Contents API ───────────────────────
+
+    @Test
+    void commitFileChange_oversizedContent_rejectsBeforeSendingAnyRequest() throws Exception {
+        startServer();
+        // deliberately no stubs registered — if the client made any HTTP call it would 404 and fail differently
+        String hugeContent = "x".repeat(1_000_001);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                client.commitFileChange("octocat", "hello-world", "main",
+                        "Huge.java", hugeContent, "fix: x"));
+
+        assertTrue(ex.getMessage().contains("1MB") || ex.getMessage().contains("limit"),
+                "must explain the size limit: " + ex.getMessage());
+        assertTrue(capturedRequestBodies.isEmpty(), "must reject before making any HTTP call");
+    }
 }

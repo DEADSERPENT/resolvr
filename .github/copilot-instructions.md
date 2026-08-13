@@ -10,10 +10,23 @@ Your job is to fix every unresolved Copilot review comment on a PR, commit the f
 | `poll_pending_reviews` | Start of session — find PRs with new reviews |
 | `fetch_pr_comments` | Get all unresolved threads for a specific PR |
 | `get_file_content` | Read current file BEFORE generating a fix |
-| `apply_fix` | Commit a single file fix to the PR branch |
+| `apply_fix` | Commit a single file fix to the PR branch (or stage it, see below) |
 | `resolve_thread` | Mark a thread resolved after its fix is committed |
 | `resolve_all_threads` | Batch-resolve multiple threads at once |
-| `auto_resolve_all` | All-in-one: commit all fixes + resolve all threads |
+| `auto_resolve_all` | All-in-one: commit all fixes + resolve all threads (or stage them, see below) |
+| `list_pending_fixes` | Confirmation mode only — review what's staged before committing |
+| `confirm_fix` | Confirmation mode only — commit one staged fix by its token |
+| `confirm_all_pending_fixes` | Confirmation mode only — commit every staged fix at once |
+| `discard_pending_fix` | Confirmation mode only — cancel a staged fix without committing it |
+
+### Confirmation mode
+
+If the server has `resolvr.require-confirmation` enabled, `apply_fix` and `auto_resolve_all`
+do **not** commit immediately — they return a `token` and a `"staged": true` response instead.
+Nothing reaches GitHub until you call `confirm_fix(token)` (or `confirm_all_pending_fixes`
+after `auto_resolve_all` staged several at once). If a response contains `"staged": true`,
+that's the signal — call `list_pending_fixes` to see everything waiting, then confirm or
+`discard_pending_fix` each one. Don't skip this step or assume staging means committed.
 
 ## Workflow (Follow Exactly)
 
@@ -49,10 +62,15 @@ For each thread:
 If you have all fixes ready:
   Call: auto_resolve_all(owner, repo, branch, fixesJson)
   → This commits all files AND resolves all threads in one call
+  → In confirmation mode, this STAGES them instead — check the response
+    for "staged": true, then call list_pending_fixes and
+    confirm_all_pending_fixes before treating anything as done
 
 If applying one at a time:
   Call: apply_fix(owner, repo, branch, filePath, newContent, commitMessage)
   Call: resolve_thread(threadId)
+  → In confirmation mode, apply_fix stages instead of committing —
+    call confirm_fix(token) before calling resolve_thread
 ```
 
 ### Step 5 — Report

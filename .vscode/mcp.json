@@ -1,10 +1,21 @@
 {
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "resolvr-api-key",
+      "description": "Resolvr API key (leave blank if RESOLVR_API_KEY isn't set on the server)",
+      "password": true
+    }
+  ],
   "servers": {
     "resolvr": {
       "type": "sse",
       "url": "http://localhost:8080/mcp/sse",
       "label": "Resolvr",
-      "description": "Resolves GitHub Copilot PR review comments automatically via Quarkus MCP server"
+      "description": "Resolves GitHub Copilot PR review comments automatically via Quarkus MCP server",
+      "headers": {
+        "Authorization": "Bearer ${input:resolvr-api-key}"
+      }
     }
   }
 }

@@ -42,13 +42,23 @@ public class GitHubRestClient {
 
     // ─── Commit a file change to a branch ─────────────────────────────────────
 
+    // GitHub's Contents API hard-limits file content to ~1MB base64-encoded;
+    // larger files need the Git Data API (blobs), which this client doesn't implement.
+    private static final int MAX_CONTENT_BYTES = 1_000_000;
+
     public String commitFileChange(String owner, String repo, String branch,
                                    String filePath, String newContent, String commitMessage) throws Exception {
+        byte[] contentBytes = newContent.getBytes(StandardCharsets.UTF_8);
+        if (contentBytes.length > MAX_CONTENT_BYTES) {
+            throw new IllegalArgumentException("File " + filePath + " is " + contentBytes.length
+                    + " bytes, over the GitHub Contents API's ~1MB limit — this client can't commit it. "
+                    + "Split the change into a smaller diff.");
+        }
+
         String url = fileUrl(owner, repo, filePath);
         String currentSha = getCurrentFileSha(owner, repo, branch, filePath);
 
-        String encodedContent = Base64.getEncoder().encodeToString(
-                newContent.getBytes(StandardCharsets.UTF_8));
+        String encodedContent = Base64.getEncoder().encodeToString(contentBytes);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("message", commitMessage);
@@ -58,7 +68,17 @@ public class GitHubRestClient {
             body.put("sha", currentSha);
         }
 
-        JsonNode resp = put(url, body);
+        JsonNode resp;
+        try {
+            resp = put(url, body);
+        } catch (GitHubApiException e) {
+            if (e.statusCode() == 409) {
+                throw new IllegalStateException("Conflict committing " + filePath + ": the file changed on "
+                        + "GitHub since it was last read (stale sha). Call get_file_content again to fetch "
+                        + "the latest content, then retry the fix.", e);
+            }
+            throw e;
+        }
         String commitSha = resp.path("commit").path("sha").asText();
         Log.infof("Committed %s on branch %s — sha %s", filePath, branch, commitSha);
         return commitSha;
@@ -125,7 +145,7 @@ public class GitHubRestClient {
     private JsonNode execute(HttpRequest req) throws Exception {
         HttpResponse<String> resp = RetryingHttpSender.send(http, req);
         if (resp.statusCode() >= 400) {
-            throw new RuntimeException("GitHub API error " + resp.statusCode() + ": " + resp.body());
+            throw new GitHubApiException(resp.statusCode(), resp.body());
         }
         return mapper.readTree(resp.body());
     }
