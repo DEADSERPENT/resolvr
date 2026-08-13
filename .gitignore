@@ -1,0 +1,33 @@
+# ── Maven ────────────────────────────────────────────────────────────────────
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+
+# ── Quarkus ──────────────────────────────────────────────────────────────────
+.quarkus/
+
+# ── Java ─────────────────────────────────────────────────────────────────────
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+hs_err_pid*
+
+# ── Env / secrets ────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── IDE noise (JetBrains/VS Code project files above are kept intentionally) ─
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/shelf/
+.idea/httpRequests/
+.vscode/*.log
+*.iml
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log

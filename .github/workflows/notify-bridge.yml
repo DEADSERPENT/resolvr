@@ -1,0 +1,26 @@
+name: Notify PR Copilot Bridge
+
+on:
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    # Only trigger when the review is from GitHub Copilot
+    if: |
+      github.event.review.user.login == 'github-copilot[bot]' ||
+      github.event.review.user.login == 'copilot-pull-request-reviewer[bot]' ||
+      github.event.comment.user.login == 'github-copilot[bot]'
+    steps:
+      - name: Ping MCP bridge webhook
+        run: |
+          curl -s -X POST "${{ secrets.MCP_BRIDGE_URL }}/webhook/github" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: ${{ github.event_name }}" \
+            -H "X-GitHub-Delivery: ${{ github.run_id }}" \
+            -d '${{ toJson(github.event) }}'
+        env:
+          MCP_BRIDGE_URL: ${{ secrets.MCP_BRIDGE_URL }}

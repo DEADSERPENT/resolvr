@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- JetBrains IDE MCP server configuration -->
+<!-- Place this file in your project .idea/ directory -->
+<project version="4">
+  <component name="McpServersConfiguration">
+    <mcpServers>
+      <server name="resolvr"
+              type="sse"
+              url="http://localhost:8080/mcp/sse"/>
+    </mcpServers>
+  </component>
+</project>

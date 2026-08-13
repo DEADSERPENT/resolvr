@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "resolvr": {
+      "type": "sse",
+      "url": "http://localhost:8080/mcp/sse",
+      "label": "Resolvr",
+      "description": "Resolves GitHub Copilot PR review comments automatically via Quarkus MCP server"
+    }
+  }
+}
