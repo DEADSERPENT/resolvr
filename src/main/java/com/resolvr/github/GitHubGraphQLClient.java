@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @ApplicationScoped
 public class GitHubGraphQLClient {
@@ -24,7 +25,7 @@ public class GitHubGraphQLClient {
     String graphqlUrl;
 
     @ConfigProperty(name = "github.token")
-    String githubToken;
+    Optional<String> githubToken;
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -162,7 +163,7 @@ public class GitHubGraphQLClient {
 
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(graphqlUrl))
-                .header("Authorization", "Bearer " + githubToken)
+                .header("Authorization", "Bearer " + GitHubTokenResolver.resolve(githubToken.orElse(null)))
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
                 .header("X-Github-Next-Global-ID", "1")

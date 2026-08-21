@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,7 +52,7 @@ class GitHubRestClientTest {
 
         client = new GitHubRestClient();
         client.apiBase = "http://127.0.0.1:" + server.getAddress().getPort();
-        client.githubToken = "test-token";
+        client.githubToken = Optional.of("test-token");
     }
 
     private void respond(HttpExchange exchange, int status, String body) throws IOException {

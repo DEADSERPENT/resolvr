@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -39,7 +40,7 @@ class GitHubGraphQLClientTest {
 
         client = new GitHubGraphQLClient();
         client.graphqlUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/graphql";
-        client.githubToken = "test-token";
+        client.githubToken = Optional.of("test-token");
     }
 
     @AfterEach
@@ -168,7 +169,7 @@ class GitHubGraphQLClientTest {
 
         client = new GitHubGraphQLClient();
         client.graphqlUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/graphql";
-        client.githubToken = "test-token";
+        client.githubToken = Optional.of("test-token");
 
         List<ReviewThread> threads = client.getUnresolvedThreads("octocat", "hello-world", 42);
 

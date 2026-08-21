@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @ApplicationScoped
 public class GitHubRestClient {
@@ -23,7 +24,7 @@ public class GitHubRestClient {
     String apiBase;
 
     @ConfigProperty(name = "github.token")
-    String githubToken;
+    Optional<String> githubToken;
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -136,7 +137,7 @@ public class GitHubRestClient {
     private HttpRequest.Builder request(String url) {
         return HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + githubToken)
+                .header("Authorization", "Bearer " + GitHubTokenResolver.resolve(githubToken.orElse(null)))
                 .header("Accept", "application/vnd.github.v3+json")
                 .header("Content-Type", "application/json")
                 .timeout(Duration.ofSeconds(30));
