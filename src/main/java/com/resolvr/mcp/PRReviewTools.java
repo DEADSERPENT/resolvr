@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * MCP tools exposed to IDE Copilot (VS Code / JetBrains Agent Mode).
  *
  * Typical agent workflow:
  *   1. poll_pending_reviews        → discover PRs needing attention
@@ -56,7 +55,7 @@ public class PRReviewTools {
     // Tool 1 — Poll pending review events (from GitHub webhooks)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "poll_pending_reviews", description = """
             Check if GitHub has sent any new PR review events via webhook.
             Returns a list of PRs that have new Copilot review comments and need attention.
             Call this first at the start of each agent session to discover work.
@@ -81,7 +80,7 @@ public class PRReviewTools {
     // Tool 2 — Fetch all unresolved PR review threads
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "fetch_pr_comments", description = """
             Fetch all UNRESOLVED GitHub Copilot review thread comments for a specific PR.
             Returns structured JSON with threadId, filePath, line, commentBody, and prBranch.
             Use threadId when calling resolve_thread later.
@@ -123,7 +122,7 @@ public class PRReviewTools {
     // Tool 3 — Read a file from the PR branch
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "get_file_content", description = """
             Read the current content of a file from the PR branch on GitHub.
             Always call this BEFORE applying a fix so you see the exact current state.
             Returns the raw file content as a string.
@@ -152,7 +151,7 @@ public class PRReviewTools {
     // Tool 4 — Commit a fix to the PR branch
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "apply_fix", description = """
             Commit a code fix directly to the PR branch on GitHub.
             Provide the COMPLETE new file content (not a diff — the full file).
             The commit message should reference the thread being fixed.
@@ -204,7 +203,7 @@ public class PRReviewTools {
     // Tool 5 — Resolve a single review thread
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "resolve_thread", description = """
             Mark a specific GitHub review thread as resolved.
             Call this AFTER successfully applying the fix for that thread.
             The threadId comes from fetchPRComments → threads[].threadId.
@@ -225,7 +224,7 @@ public class PRReviewTools {
     // Tool 6 — Batch resolve multiple threads at once
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "resolve_all_threads", description = """
             Resolve multiple GitHub review threads in one call.
             Use this after applying all fixes to close out all threads efficiently.
             threadIds is a JSON array of thread node ID strings.
@@ -260,7 +259,7 @@ public class PRReviewTools {
     // Tool 7 — All-in-one auto-resolve (apply fixes + resolve in one structured call)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "auto_resolve_all", description = """
             POWER TOOL: Apply multiple fixes and resolve their threads in one efficient call.
             Use this after you have generated all the fixed file contents.
 
@@ -352,7 +351,7 @@ public class PRReviewTools {
     // Tool 8 — List fixes staged for confirmation
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "list_pending_fixes", description = """
             List every fix currently staged for review (only relevant when
             resolvr.require-confirmation is enabled). Returns a preview of each
             pending fix — token, target file, commit message, and content length —
@@ -384,7 +383,7 @@ public class PRReviewTools {
     // Tool 9 — Confirm and commit one staged fix
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "confirm_fix", description = """
             Commit a fix that was previously staged by apply_fix or auto_resolve_all
             (only relevant when resolvr.require-confirmation is enabled).
             Commits the file, resolves the associated thread if one was staged, and
@@ -421,7 +420,7 @@ public class PRReviewTools {
     // Tool 10 — Confirm and commit every staged fix
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "confirm_all_pending_fixes", description = """
             Commit every fix currently staged for review in one call — the batch
             equivalent of confirm_fix (only relevant when resolvr.require-confirmation
             is enabled). Use list_pending_fixes to review what's staged first.
@@ -460,7 +459,7 @@ public class PRReviewTools {
     // Tool 11 — Discard a staged fix without committing it
     // ═══════════════════════════════════════════════════════════════════════════
 
-    @Tool(description = """
+    @Tool(name = "discard_pending_fix", description = """
             Discard a fix that was staged by apply_fix or auto_resolve_all without
             committing it (only relevant when resolvr.require-confirmation is enabled).
             """)

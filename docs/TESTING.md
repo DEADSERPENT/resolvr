@@ -4,7 +4,7 @@
 ./mvnw verify
 ```
 
-53 tests, ~74% instruction / 73% line coverage (JaCoCo report at `target/site/jacoco/index.html` after running `verify`). CI runs the same command on every push/PR via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+53 tests, ~71% instruction / 70% line coverage (JaCoCo report at `target/site/jacoco/index.html` after running `verify`). CI runs the same command on every push/PR via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
 The model records are the main uncovered surface — thin data holders, low risk, a reasonable disclosed gap rather than padding.
 
