@@ -221,6 +221,46 @@ class GitHubGraphQLClientTest {
     }
 
     @Test
+    void getAllReviewThreads_includesResolvedAndUnresolvedWithFlags() throws Exception {
+        String fixture = """
+                {
+                  "data": {
+                    "repository": {
+                      "pullRequest": {
+                        "headRefName": "feature/foo",
+                        "reviewThreads": {
+                          "nodes": [
+                            {
+                              "id": "RT_1",
+                              "isResolved": false,
+                              "comments": { "nodes": [
+                                { "body": "fix this", "path": "Foo.java", "line": 10, "originalLine": 10, "author": { "login": "github-copilot" } }
+                              ] }
+                            },
+                            {
+                              "id": "RT_2",
+                              "isResolved": true,
+                              "comments": { "nodes": [
+                                { "body": "already fixed", "path": "Bar.java", "line": 5, "originalLine": 5, "author": { "login": "someone" } }
+                              ] }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+        startServerReturning(fixture, 200);
+
+        List<ReviewThread> threads = client.getAllReviewThreads("octocat", "hello-world", 42);
+
+        assertEquals(2, threads.size(), "resolved threads must be included, not filtered out");
+        assertFalse(threads.get(0).resolved());
+        assertTrue(threads.get(1).resolved());
+    }
+
+    @Test
     void resolveThread_success_doesNotThrow() throws Exception {
         String fixture = "{\"data\":{\"resolveReviewThread\":{\"thread\":{\"id\":\"RT_1\",\"isResolved\":true}}}}";
         startServerReturning(fixture, 200);

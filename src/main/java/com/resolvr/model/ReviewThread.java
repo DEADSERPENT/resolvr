@@ -12,7 +12,8 @@ public record ReviewThread(
     String prBranch,
     String owner,
     String repo,
-    int prNumber
+    int prNumber,
+    boolean resolved
 ) {
     public String toPromptContext() {
         return """

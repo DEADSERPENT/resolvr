@@ -15,6 +15,15 @@ This is for people building or contributing to Resolvr itself. If you just want 
 
 Starts in a few seconds with hot reload. Auth is off by default in the dev profile (`%dev.resolvr.api-key=`, `%dev.github.webhook.secret=` are both blank in `application.properties`), so there's nothing else to configure for local testing. Skip the webhook entirely for a quick check — just tell your IDE agent to call `fetch_pr_comments` directly for a PR you already know about.
 
+> **Known issue (as of `quarkus-mcp-server-sse` 1.1.0 on Quarkus 3.15.1):** `quarkus:dev` currently fails to start —
+> `jakarta.enterprise.inject.spi.DeploymentException: Found 2 deployment problems` for
+> `io.quarkiverse.mcp.server.sse.runtime.devui.SseMcpJsonRPCService`, which can't resolve
+> `VertxHttpConfig`/`VertxHttpBuildTimeConfig`. This is the extension's Dev UI integration failing
+> CDI validation, not a Resolvr code issue — it reproduces on a clean checkout with no local changes.
+> **Use the production path below for local testing/MCP smoke testing until this is fixed upstream
+> or the extension version is bumped.** Don't downgrade or swap the dependency stack just to route
+> around it; production mode already works and is what actually ships (see [Docker](#docker-built-locally)).
+
 ## Full local run (matches production config)
 
 ```bash

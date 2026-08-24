@@ -29,6 +29,7 @@ public class GitHubGraphQLClient {
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
+            .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -62,6 +63,16 @@ public class GitHubGraphQLClient {
             """;
 
     public List<ReviewThread> getUnresolvedThreads(String owner, String repo, int prNumber) throws Exception {
+        return fetchReviewThreads(owner, repo, prNumber, true);
+    }
+
+    /** Both resolved and unresolved threads, each tagged with its resolution state — used by the PR Context Engine. */
+    public List<ReviewThread> getAllReviewThreads(String owner, String repo, int prNumber) throws Exception {
+        return fetchReviewThreads(owner, repo, prNumber, false);
+    }
+
+    private List<ReviewThread> fetchReviewThreads(String owner, String repo, int prNumber, boolean unresolvedOnly)
+            throws Exception {
         List<ReviewThread> result = new ArrayList<>();
         String branch = null;
         String cursor = null;
@@ -91,7 +102,8 @@ public class GitHubGraphQLClient {
 
             JsonNode reviewThreads = pr.path("reviewThreads");
             for (JsonNode thread : reviewThreads.path("nodes")) {
-                if (thread.path("isResolved").asBoolean()) continue;
+                boolean resolved = thread.path("isResolved").asBoolean();
+                if (unresolvedOnly && resolved) continue;
 
                 JsonNode comment = thread.path("comments").path("nodes").get(0);
                 if (comment == null) continue;
@@ -109,7 +121,8 @@ public class GitHubGraphQLClient {
                         branch,
                         owner,
                         repo,
-                        prNumber
+                        prNumber,
+                        resolved
                 ));
             }
 
@@ -121,7 +134,8 @@ public class GitHubGraphQLClient {
             }
         }
 
-        Log.infof("Found %d unresolved threads for %s/%s#%d", result.size(), owner, repo, prNumber);
+        Log.infof("Found %d %sthreads for %s/%s#%d", result.size(),
+                unresolvedOnly ? "unresolved " : "", owner, repo, prNumber);
         return result;
     }
 

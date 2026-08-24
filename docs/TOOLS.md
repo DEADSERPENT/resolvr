@@ -2,7 +2,15 @@
 
 | Tool | Purpose |
 |---|---|
-| `poll_pending_reviews` | Discover PRs with new Copilot review activity |
+| `get_workspace_pr_context` | Default/on-demand discovery — resolves workspace → Git remote → owner/repo → branch → matching open PR, with local-vs-PR HEAD sync info. Call this first; no webhook needed. |
+| `get_current_pr` | Thin wrapper around `get_workspace_pr_context` returning just repository + pullRequest |
+| `get_pr_context` | PR Context Engine — full structured context for the current PR in one call: metadata, review threads (resolved + unresolved), comments, changed files, diff, commits, and CI status. Builds on `get_workspace_pr_context`. |
+| `get_local_changes` | Read-only — what's changed in the local working tree right now, from `git status`/`git diff`, not from asking the agent |
+| `prepare_resolution_summary` | Read-only — builds and stages an approval package (branch/HEAD/PR-state verified) for the current local changes; returns a token |
+| `commit_and_push_resolution` | **The approval boundary** — only call after explicit developer approval. Re-verifies everything independently, then commits exactly the approved files and pushes |
+| `resolve_addressed_threads` | Resolves review threads on GitHub — only usable after a successful `commit_and_push_resolution` |
+| `discard_resolution` | Cancels a prepared resolution without committing or pushing anything |
+| `poll_pending_reviews` | Webhook mode only — discover PRs with new Copilot review activity queued by an inbound webhook |
 | `fetch_pr_comments` | Get all unresolved threads for a PR, with prompt-ready context |
 | `get_file_content` | Read the current state of a file from the PR branch |
 | `apply_fix` | Commit a full-file fix to the PR branch (or stage it — see [SECURITY.md](SECURITY.md)) |
