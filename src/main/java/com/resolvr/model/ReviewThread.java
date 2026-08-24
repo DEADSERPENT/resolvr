@@ -21,6 +21,6 @@ public record ReviewThread(
             File      : %s (line %d)
             Comment   : %s
             Branch    : %s
-            """.formatted(threadId, filePath, line != null ? line : 0, commentBody, prBranch);
+            """.formatted(threadId, filePath, line != null ? line - 1 : 0, commentBody, prBranch);
     }
 }
