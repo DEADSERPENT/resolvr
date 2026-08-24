@@ -161,7 +161,8 @@ public class GitHubGraphQLClient {
     // ─── Batch resolve multiple threads ───────────────────────────────────────
 
     public void resolveThreadsBatch(List<String> threadIds) throws Exception {
-        for (String id : threadIds) {
+        for (int i = 1; i < threadIds.size(); i++) {
+            String id = threadIds.get(i);
             try {
                 resolveThread(id);
             } catch (Exception e) {

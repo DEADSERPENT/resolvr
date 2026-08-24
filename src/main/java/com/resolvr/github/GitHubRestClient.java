@@ -104,7 +104,7 @@ public class GitHubRestClient {
     public void replyToThread(String owner, String repo, int prNumber,
                               String body, int inReplyToId) throws Exception {
         String url = apiBase + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/comments";
-        post(url, Map.of("body", body, "in_reply_to", inReplyToId));
+        post(url, Map.of("body", body, "in_reply_to_id", inReplyToId));
     }
 
     // ─── Get PR head branch ───────────────────────────────────────────────────
