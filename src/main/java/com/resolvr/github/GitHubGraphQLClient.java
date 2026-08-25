@@ -158,18 +158,6 @@ public class GitHubGraphQLClient {
         Log.infof("Resolved thread %s", threadId);
     }
 
-    // ─── Batch resolve multiple threads ───────────────────────────────────────
-
-    public void resolveThreadsBatch(List<String> threadIds) throws Exception {
-        for (String id : threadIds) {
-            try {
-                resolveThread(id);
-            } catch (Exception e) {
-                Log.warnf("Failed to resolve thread %s: %s", id, e.getMessage());
-            }
-        }
-    }
-
     // ─── Internal GraphQL executor ─────────────────────────────────────────────
 
     private JsonNode executeGraphQL(String query, Map<String, Object> variables) throws Exception {

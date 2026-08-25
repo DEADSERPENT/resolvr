@@ -18,10 +18,9 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Orchestration tests for get_workspace_pr_context (spec §9.1): real temp Git
- * repos exercise GitStateService for real, while a fake GitHubRestClient
- * subclass stands in for the network boundary (same pattern as
- * PRReviewToolsConfirmationTest).
+ * Orchestration tests for get_workspace_pr_context: real temp Git repos
+ * exercise GitStateService for real, while a fake GitHubRestClient subclass
+ * stands in for the network boundary.
  */
 class WorkspacePrContextServiceTest {
 

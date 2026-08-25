@@ -12,10 +12,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Discovery tools for the default Manual/On-demand mode (spec §6.1): the
- * first thing an agent calls in a session, before any webhook or polling
- * mechanism is involved. Read-only — never switches branches, edits files,
- * commits, pushes, or resolves threads.
+ * Discovery tools — the first thing an agent calls in a session, on demand, with no
+ * server-side event or polling mechanism involved. Read-only — never switches branches,
+ * edits files, commits, pushes, or resolves threads.
  */
 @ApplicationScoped
 public class WorkspaceTools {
@@ -29,7 +28,7 @@ public class WorkspaceTools {
             Discover what the local workspace is looking at: resolves the Git repository,
             origin remote, current branch, local HEAD sha, and working-tree cleanliness,
             then finds the open GitHub PR (if any) whose head branch matches. Call this
-            FIRST in a session — no webhook event or prior poll is required.
+            FIRST in a session.
             Read-only: never switches branches, edits files, commits, pushes, or resolves
             threads. Returns repository, workspace, pullRequest, workingTree, and sync
             (local HEAD vs. PR HEAD) fields. If no PR matches, if multiple PRs match, or
@@ -46,7 +45,7 @@ public class WorkspaceTools {
             return mapper.writeValueAsString(context);
         } catch (Exception e) {
             Log.errorf(e, "getWorkspacePrContext failed for %s", workspacePath);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 
@@ -73,7 +72,7 @@ public class WorkspaceTools {
             return mapper.writeValueAsString(summary);
         } catch (Exception e) {
             Log.errorf(e, "getCurrentPr failed for %s", workspacePath);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 

@@ -13,7 +13,7 @@ This is for people building or contributing to Resolvr itself. If you just want 
 ./mvnw quarkus:dev
 ```
 
-Starts in a few seconds with hot reload. Auth is off by default in the dev profile (`%dev.resolvr.api-key=`, `%dev.github.webhook.secret=` are both blank in `application.properties`), so there's nothing else to configure for local testing. Skip the webhook entirely for a quick check — just tell your IDE agent to call `fetch_pr_comments` directly for a PR you already know about.
+Starts in a few seconds with hot reload. Auth is off by default in the dev profile (`%dev.resolvr.api-key=` is blank in `application.properties`), so there's nothing else to configure for local testing — tell your IDE agent to call `get_workspace_pr_context` against a repo you have checked out, or `fetch_pr_comments` directly for a PR you already know about.
 
 > **Known issue (as of `quarkus-mcp-server-sse` 1.1.0 on Quarkus 3.15.1):** `quarkus:dev` currently fails to start —
 > `jakarta.enterprise.inject.spi.DeploymentException: Found 2 deployment problems` for
@@ -28,12 +28,11 @@ Starts in a few seconds with hot reload. Auth is off by default in the dev profi
 
 ```bash
 export GITHUB_TOKEN=ghp_your_token_here          # repo, read:discussion, write:discussion scopes
-export GITHUB_WEBHOOK_SECRET=your_webhook_secret  # HMAC secret for your GitHub webhook
 export RESOLVR_API_KEY=$(openssl rand -hex 32)    # required for anything beyond localhost
 ./scripts/run.sh
 ```
 
-Builds via Maven, then runs the packaged jar. Point your GitHub repo/org webhook at `http://<your-host>:8080/webhook/github`, then connect your IDE's MCP client to `http://<your-host>:8080/mcp/sse`. `.vscode/mcp.json` and `.idea/mcp.xml` in this repo are already wired to `localhost:8080`.
+Builds via Maven, then runs the packaged jar. Connect your IDE's MCP client to `http://<your-host>:8080/mcp/sse`. `.vscode/mcp.json` and `.idea/mcp.xml` in this repo are already wired to `localhost:8080`.
 
 ## Docker, built locally
 
@@ -59,5 +58,5 @@ Every push to `main` builds and pushes `ghcr.io/deadserpent/resolvr` (`:latest` 
 
 - [Architecture](ARCHITECTURE.md) — how the pieces fit together
 - [MCP tools reference](TOOLS.md) — the full tool list an IDE agent can call
-- [Security](SECURITY.md) — API key auth, confirmation mode, token permission gotchas
+- [Security](SECURITY.md) — API key auth, the single write path, token permission gotchas
 - [Known limitations](LIMITATIONS.md) — what this doesn't do (yet)

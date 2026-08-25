@@ -83,39 +83,6 @@ class GitHubRestClientTest {
     }
 
     @Test
-    void commitFileChange_existingFile_includesShaForOptimisticConcurrency() throws Exception {
-        startServer();
-        stub("GET", "/repos/octocat/hello-world/contents/Foo.java", 200, "{\"sha\":\"abc123\"}");
-        stub("PUT", "/repos/octocat/hello-world/contents/Foo.java", 200,
-                "{\"commit\":{\"sha\":\"newsha456\"}}");
-
-        String commitSha = client.commitFileChange("octocat", "hello-world", "main",
-                "Foo.java", "new content", "fix: address review comment");
-
-        assertEquals("newsha456", commitSha);
-        String putBody = capturedRequestBodies.get("PUT /repos/octocat/hello-world/contents/Foo.java");
-        assertTrue(putBody.contains("\"sha\":\"abc123\""), "must send the current sha for optimistic concurrency");
-        assertTrue(putBody.contains(Base64.getEncoder().encodeToString("new content".getBytes(StandardCharsets.UTF_8))));
-        assertTrue(putBody.contains("\"branch\":\"main\""));
-    }
-
-    @Test
-    void commitFileChange_newFile_omitsSha() throws Exception {
-        startServer();
-        // sha lookup 404s — file does not exist yet on this branch
-        stub("GET", "/repos/octocat/hello-world/contents/NewFile.java", 404, "{\"message\":\"Not Found\"}");
-        stub("PUT", "/repos/octocat/hello-world/contents/NewFile.java", 201,
-                "{\"commit\":{\"sha\":\"createdsha\"}}");
-
-        String commitSha = client.commitFileChange("octocat", "hello-world", "main",
-                "NewFile.java", "brand new content", "feat: add NewFile.java");
-
-        assertEquals("createdsha", commitSha);
-        String putBody = capturedRequestBodies.get("PUT /repos/octocat/hello-world/contents/NewFile.java");
-        assertFalse(putBody.contains("\"sha\""), "must not send a sha when creating a new file");
-    }
-
-    @Test
     void getPRHeadBranch_returnsRef() throws Exception {
         startServer();
         stub("GET", "/repos/octocat/hello-world/pulls/5", 200, "{\"head\":{\"ref\":\"feature/x\"}}");
@@ -506,38 +473,4 @@ class GitHubRestClientTest {
                 () -> client.getFileContent("octocat", "hello-world", "main", "Broken.java"));
     }
 
-    // ─── Worst case: concurrent edit (stale sha) ───────────────────────────────
-
-    @Test
-    void commitFileChange_staleSha409_throwsClearConflictMessage() throws Exception {
-        startServer();
-        stub("GET", "/repos/octocat/hello-world/contents/Foo.java", 200, "{\"sha\":\"old-sha\"}");
-        stub("PUT", "/repos/octocat/hello-world/contents/Foo.java", 409,
-                "{\"message\":\"foo.java does not match old-sha\"}");
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
-                client.commitFileChange("octocat", "hello-world", "main",
-                        "Foo.java", "new content", "fix: x"));
-
-        assertTrue(ex.getMessage().contains("stale sha"), "must explain what went wrong: " + ex.getMessage());
-        assertTrue(ex.getMessage().contains("get_file_content"), "must tell the caller how to recover: " + ex.getMessage());
-        assertInstanceOf(GitHubApiException.class, ex.getCause(), "original GitHub error must be preserved as cause");
-    }
-
-    // ─── Worst case: file too large for the Contents API ───────────────────────
-
-    @Test
-    void commitFileChange_oversizedContent_rejectsBeforeSendingAnyRequest() throws Exception {
-        startServer();
-        // deliberately no stubs registered — if the client made any HTTP call it would 404 and fail differently
-        String hugeContent = "x".repeat(1_000_001);
-
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
-                client.commitFileChange("octocat", "hello-world", "main",
-                        "Huge.java", hugeContent, "fix: x"));
-
-        assertTrue(ex.getMessage().contains("1MB") || ex.getMessage().contains("limit"),
-                "must explain the size limit: " + ex.getMessage());
-        assertTrue(capturedRequestBodies.isEmpty(), "must reject before making any HTTP call");
-    }
 }

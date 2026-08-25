@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** In-memory store for prepared resolutions, keyed by an opaque token — same pattern as PendingFixStore. */
+/** In-memory store for prepared resolutions, keyed by an opaque token. */
 @ApplicationScoped
 public class ResolutionTaskStore {
 

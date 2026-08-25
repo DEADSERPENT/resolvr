@@ -9,11 +9,11 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    # RESOLVR_API_KEY is required — this container runs in production mode, and it
+    # refuses to start without one (see docs/SECURITY.md).
     environment:
       GITHUB_TOKEN: ${GITHUB_TOKEN}
-      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
       RESOLVR_API_KEY: ${RESOLVR_API_KEY}
-      RESOLVR_REQUIRE_CONFIRMATION: ${RESOLVR_REQUIRE_CONFIRMATION:-false}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/q/health"]
       interval: 30s

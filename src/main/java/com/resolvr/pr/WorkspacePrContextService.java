@@ -15,9 +15,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Answers "what am I looking at?" for the default Manual/On-demand mode
- * (spec §6.1, §9.1): workspace → Git remote → owner/repo → current branch →
- * matching open GitHub PR, on demand, with no webhook involved.
+ * Answers "what am I looking at?": workspace → Git remote → owner/repo →
+ * current branch → matching open GitHub PR, on demand.
  *
  * Read-only. Never switches branches, edits files, commits, pushes, or
  * resolves threads.
