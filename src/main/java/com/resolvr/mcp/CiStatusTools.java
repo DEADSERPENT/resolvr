@@ -50,7 +50,7 @@ public class CiStatusTools {
             return mapper.writeValueAsString(ciStatus.getStatus(workspacePath));
         } catch (Exception e) {
             Log.errorf(e, "getCiStatus failed for %s", workspacePath);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 
@@ -84,7 +84,7 @@ public class CiStatusTools {
             return mapper.writeValueAsString(ciStatus.getFailureLogs(workspacePath, checkNames));
         } catch (Exception e) {
             Log.errorf(e, "getCiFailureLogs failed for %s", workspacePath);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 

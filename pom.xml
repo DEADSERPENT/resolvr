@@ -41,7 +41,7 @@
       <version>${quarkus-mcp.version}</version>
     </dependency>
 
-    <!-- REST endpoint for GitHub webhooks -->
+    <!-- REST/JAX-RS support (used by the health-check and OpenAPI/Swagger UI extensions below) -->
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-rest</artifactId>

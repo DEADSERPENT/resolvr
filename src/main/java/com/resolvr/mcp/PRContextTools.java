@@ -52,7 +52,7 @@ public class PRContextTools {
             return mapper.writeValueAsString(context);
         } catch (Exception e) {
             Log.errorf(e, "getPrContext failed for %s", workspacePath);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 }

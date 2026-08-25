@@ -42,7 +42,7 @@ public class ResolutionTools {
             return mapper.writeValueAsString(resolution.getLocalChanges(workspacePath));
         } catch (Exception e) {
             Log.errorf(e, "getLocalChanges failed for %s", workspacePath);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 
@@ -78,7 +78,7 @@ public class ResolutionTools {
             return mapper.writeValueAsString(resolution.prepareResolutionSummary(workspacePath, commitMessage, threadIds));
         } catch (Exception e) {
             Log.errorf(e, "prepareResolutionSummary failed for %s", workspacePath);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 
@@ -103,7 +103,7 @@ public class ResolutionTools {
             return mapper.writeValueAsString(resolution.commitAndPushResolution(token));
         } catch (Exception e) {
             Log.errorf(e, "commitAndPushResolution failed for token %s", token);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 
@@ -125,7 +125,7 @@ public class ResolutionTools {
             return mapper.writeValueAsString(resolution.resolveAddressedThreads(token, threadIds));
         } catch (Exception e) {
             Log.errorf(e, "resolveAddressedThreads failed for token %s", token);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 
@@ -140,7 +140,7 @@ public class ResolutionTools {
             return mapper.writeValueAsString(resolution.discardResolution(token));
         } catch (Exception e) {
             Log.errorf(e, "discardResolution failed for token %s", token);
-            return "{\"error\":\"" + e.getMessage() + "\"}";
+            return McpErrors.error(e.getMessage());
         }
     }
 

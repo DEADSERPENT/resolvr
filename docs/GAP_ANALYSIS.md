@@ -1,3 +1,9 @@
+> **Superseded.** This is a point-in-time snapshot from 2026-08-24, before local-first
+> discovery/editing/approval (`get_workspace_pr_context`, `ResolutionTools`) existed. Every
+> gap it lists under "Missing" in items 1, 5, and 8 has since been implemented and is now
+> the primary, only-supported write path — see [ARCHITECTURE.md](ARCHITECTURE.md) and
+> [TOOLS.md](TOOLS.md) for current behavior. Kept for history, not as current status.
+
 # Resolvr — Gap Analysis vs. Revised Specification (2026-08-24)
 
 Compares the current implementation (`src/main/java/com/resolvr/...`) against

@@ -19,10 +19,8 @@ cd "$PROJECT_DIR"
 ./mvnw package -DskipTests -q
 
 # ── Run ───────────────────────────────────────────────────────────────────────
-echo ">>> Starting MCP bridge on http://localhost:8080"
+echo ">>> Starting Resolvr on http://localhost:8080"
 echo "    IDE MCP endpoint : http://localhost:8080/mcp/sse"
-echo "    GitHub webhook   : http://localhost:8080/webhook/github"
-echo "    Manual trigger   : http://localhost:8080/webhook/trigger?owner=ORG&repo=REPO&pr=42"
 echo "    Swagger UI       : http://localhost:8080/swagger-ui"
 echo ""
 

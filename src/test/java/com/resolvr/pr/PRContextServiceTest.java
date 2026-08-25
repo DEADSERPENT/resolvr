@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests the PR Context Engine's aggregation logic in isolation from the
  * network and Git boundaries: WorkspacePrContextService, GitHubRestClient,
  * and GitHubGraphQLClient are all faked with canned/controllable
- * subclasses (same pattern as PRReviewToolsConfirmationTest), so these
- * tests focus purely on how PRContextService combines their results.
+ * subclasses, so these tests focus purely on how PRContextService combines
+ * their results.
  */
 class PRContextServiceTest {
 

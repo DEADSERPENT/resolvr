@@ -1,4 +1,4 @@
-package com.resolvr.webhook;
+package com.resolvr.security;
 
 import io.quarkus.logging.Log;
 import io.quarkus.vertx.http.runtime.filters.Filters;
@@ -12,13 +12,13 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Gates every route except the GitHub webhook (authenticated separately via
- * HMAC signature) and the health check behind a shared API key.
+ * Gates every route except the health check behind a shared API key.
  *
- * Without this, /mcp/sse and /webhook/trigger have zero authentication —
- * anyone who can reach the port can drive this server's GitHub token.
- * Mirrors the webhook-secret convention: an unset key means "dev mode, stay open"
- * so a bare `./scripts/run.sh` on localhost keeps working with no extra setup.
+ * Without this, /mcp/sse has zero authentication — anyone who can reach the port can drive
+ * this server's GitHub token. An unset key means "dev mode, stay open" so a bare
+ * `./scripts/run.sh` on localhost keeps working with no extra setup — but {@link
+ * com.resolvr.config.StartupSecurityCheck} refuses to boot a packaged (non-dev, non-test)
+ * instance without a key configured, so that open state can't reach a real deployment.
  */
 @ApplicationScoped
 public class ApiKeyAuthFilter {
@@ -27,7 +27,6 @@ public class ApiKeyAuthFilter {
     Optional<String> apiKey;
 
     private static final Set<String> EXEMPT_PATHS = Set.of(
-            "/webhook/github",
             "/q/health",
             "/q/health/live",
             "/q/health/ready"
