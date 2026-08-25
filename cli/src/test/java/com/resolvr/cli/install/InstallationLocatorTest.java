@@ -78,7 +78,8 @@ class InstallationLocatorTest {
     void tryLocate_propertyPresentButFilesMissing_returnsEmpty() {
         // Points at a syntactically valid but nonexistent install — must not report "found"
         // for a partial/corrupt install with no actual bundled server/runtime.
-        System.setProperty(InstallationLocator.APP_PATH_PROPERTY, "C:\\nowhere\\resolvr.exe");
+        System.setProperty(InstallationLocator.APP_PATH_PROPERTY,
+                Path.of(System.getProperty("user.home"), "nowhere", "resolvr.exe").toString());
         assertTrue(InstallationLocator.tryLocate().isEmpty());
     }
 
