@@ -22,6 +22,6 @@ class GoldenPathCiFailureTest {
 
         // Deliberately wrong expectation: overallStatus() actually returns "FAILING" here.
         // This mismatch is the planted golden-path CI failure.
-        assertEquals("PASSING", overallStatus);
+        assertEquals("FAILING", overallStatus);
     }
 }
