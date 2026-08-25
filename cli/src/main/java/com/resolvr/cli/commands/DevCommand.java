@@ -1,6 +1,7 @@
 package com.resolvr.cli.commands;
 
 import com.resolvr.cli.env.EnvPresence;
+import com.resolvr.cli.install.InstallationLocator;
 import com.resolvr.cli.launch.LaunchSpec;
 import com.resolvr.cli.launch.QuarkusDevLaunchSpec;
 import com.resolvr.cli.net.HealthChecker;
@@ -63,6 +64,17 @@ public final class DevCommand implements Command {
     public int run(PrintStream out, String[] args) {
         out.println("Resolvr dev");
         out.println("-----------");
+
+        // Dev mode (quarkus:dev, live-reload, %dev-profile relaxed auth) only makes sense
+        // against a source checkout — an installed copy has no source to reload and must
+        // never run under the dev profile (see InstalledJarLaunchSpec). Refuse explicitly
+        // rather than falling through to a confusing "no repo found" error.
+        if (InstallationLocator.tryLocate().isPresent()) {
+            out.println("ERROR: `resolvr dev` is not available from an installed copy of Resolvr.");
+            out.println("       Dev mode requires a source checkout — see docs/DEVELOPMENT.md.");
+            out.println("       Use `resolvr start`/`stop`/`status` instead.");
+            return 1;
+        }
 
         // 1. Verify repository/environment
         Path repoRoot;

@@ -1,6 +1,9 @@
 package com.resolvr.cli.diagnostics;
 
 import com.resolvr.cli.env.EnvPresence;
+import com.resolvr.cli.install.InstallationLayout;
+import com.resolvr.cli.install.InstallationLocator;
+import com.resolvr.cli.install.InstalledStateDir;
 import com.resolvr.cli.net.HealthChecker;
 import com.resolvr.cli.net.HealthStatus;
 import com.resolvr.cli.net.McpEndpointChecker;
@@ -55,7 +58,12 @@ public final class DiagnosticsCollector {
         }
 
         JavaRuntimeInfo java = JavaRuntimeInfo.detectCurrent();
-        Optional<Path> repoRoot = RepoLocator.tryLocate();
+
+        // Installed mode takes precedence (same as RuntimeResolver): an installed binary is
+        // never sitting inside a git checkout, so there's no real ambiguity to resolve.
+        Optional<InstallationLayout> installation = InstallationLocator.tryLocate();
+        Optional<Path> installRoot = installation.map(InstallationLayout::installRoot);
+        Optional<Path> repoRoot = installation.isPresent() ? Optional.empty() : RepoLocator.tryLocate();
 
         boolean portInUse = PortChecker.isInUse(port);
         HealthStatus health = healthChecker.check(URI.create("http://localhost:" + port + "/q/health"), checkTimeout);
@@ -64,14 +72,17 @@ public final class DiagnosticsCollector {
         EnvPresence.Check githubToken = EnvPresence.check(env, "GITHUB_TOKEN");
         EnvPresence.Check apiKey = EnvPresence.check(env, "RESOLVR_API_KEY");
 
-        Optional<ProcessStatus> serverProcess = repoRoot.map(root -> {
-            PidFile pidFile = new PidFile(ResolvrPaths.pidFilePath(root));
+        Optional<Path> stateBaseDir = installation.isPresent()
+                ? platform.map(p -> InstalledStateDir.resolve(p, env, System.getProperty("user.home")))
+                : repoRoot;
+        Optional<ProcessStatus> serverProcess = stateBaseDir.map(base -> {
+            PidFile pidFile = new PidFile(ResolvrPaths.pidFilePath(base));
             ServerProcessManager manager = new ServerProcessManager(pidFile,
-                    ResolvrPaths.logFilePath(root), Duration.ofSeconds(2), Duration.ofSeconds(5));
+                    ResolvrPaths.logFilePath(base), Duration.ofSeconds(2), Duration.ofSeconds(5));
             return manager.status();
         });
 
-        return new DiagnosticsReport(platform, unsupportedReason, java, repoRoot, port, portInUse,
+        return new DiagnosticsReport(platform, unsupportedReason, java, installRoot, repoRoot, port, portInUse,
                 health, mcp, githubToken, apiKey, serverProcess);
     }
 }

@@ -38,7 +38,12 @@ public final class StatusCommand implements Command {
                 .orElseGet(() -> "UNSUPPORTED (" + r.unsupportedPlatformReason().orElse("unknown") + ")"));
         out.println("Java runtime     : " + r.java().versionString()
                 + (r.java().meetsMinimum() ? "" : " - below required " + JavaRuntimeInfo.MINIMUM_FEATURE_VERSION + "+"));
-        out.println("Repository       : " + r.repoRoot().map(Path::toString).orElse("not found"));
+        if (r.installRoot().isPresent()) {
+            out.println("Mode             : installed (" + r.installRoot().get() + ")");
+        } else {
+            out.println("Mode             : developer checkout");
+            out.println("Repository       : " + r.repoRoot().map(Path::toString).orElse("not found"));
+        }
         out.println("Port " + r.port() + "         : " + (r.portInUse() ? "in use" : "available"));
         out.println("Server health    : " + r.health());
         out.println("MCP/SSE endpoint : " + r.mcpEndpoint());

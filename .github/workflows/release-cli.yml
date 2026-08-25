@@ -1,0 +1,308 @@
+name: Release CLI
+
+# Builds and publishes installed-mode distribution artifacts for the `resolvr` CLI — see
+# docs/INSTALLATION.md. Completely separate from ci.yml (which only ever runs `mvnw test`,
+# never packages anything): this workflow only runs on `cli-v*` tags, never on push/PR, and
+# never touches ci.yml's jobs.
+#
+# No installer is signed (see docs/INSTALLATION.md#signing) — no signing credentials exist in
+# this repository and none were invented. Every job below is a real build on that platform's
+# native GitHub-hosted runner; nothing is cross-compiled.
+
+on:
+  push:
+    tags:
+      - 'cli-v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-cli-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # Parses and validates the version out of the tag once, so every other job (and the final
+  # artifact filenames / jpackage --app-version) agrees on the same value.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Extract and validate version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#cli-v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '$TAG' must look like cli-vX.Y.Z (parsed version '$VERSION' is not X.Y.Z)"
+            exit 1
+          fi
+          echo "Releasing version $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  # Compiles the server (root pom, Quarkus fast-jar) and the CLI (cli/pom.xml, independent
+  # module — see that pom's own comment) exactly once. Both outputs are plain JVM bytecode,
+  # not platform-specific, so there is no reason to rebuild them on every OS in the matrix —
+  # only the jlink runtime image and the jpackage installer are truly platform/arch-specific,
+  # and those still run natively per-OS below.
+  build-jars:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build server (quarkus-app fast-jar)
+        run: ./mvnw --batch-mode --no-transfer-progress package -DskipTests
+
+      - name: Build CLI jar
+        working-directory: cli
+        run: |
+          chmod +x mvnw
+          ./mvnw --batch-mode --no-transfer-progress package -DskipTests
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-quarkus-app
+          path: target/quarkus-app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-jar
+          path: cli/target/resolvr-cli.jar
+
+  build-windows-x64:
+    needs: [version, build-jars]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: server-quarkus-app
+          path: server-quarkus-app
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-jar
+          path: cli-jar
+
+      - name: Assemble jpackage input
+        run: pwsh -ExecutionPolicy Bypass -File cli/packaging/assemble-input.ps1 -CliJar cli-jar/resolvr-cli.jar -ServerQuarkusApp server-quarkus-app -StageDir build/input
+
+      - name: Secret scan packaged input
+        run: pwsh -ExecutionPolicy Bypass -File cli/packaging/validate-input.ps1 -StageDir build/input
+
+      - name: Build jlink runtime image
+        run: pwsh -ExecutionPolicy Bypass -File cli/packaging/build-runtime.ps1 -ServerDir server-quarkus-app -CliJar cli-jar/resolvr-cli.jar -OutDir build/runtime
+
+      - name: Build MSI
+        run: pwsh -ExecutionPolicy Bypass -File cli/packaging/jpackage-windows.ps1 -StageDir build/input -RuntimeDir build/runtime -Version ${{ needs.version.outputs.version }} -DestDir dist
+
+      # Signing (not configured — no Windows code-signing certificate exists in this
+      # repository; none was invented). Once one is added as secrets (e.g. a base64-encoded
+      # PFX + password), sign here before uploading:
+      #
+      #   - name: Sign MSI
+      #     run: |
+      #       $bytes = [Convert]::FromBase64String($env:WIN_CERT_BASE64)
+      #       [IO.File]::WriteAllBytes("cert.pfx", $bytes)
+      #       & signtool sign /f cert.pfx /p $env:WIN_CERT_PASSWORD /fd sha256 `
+      #         /tr http://timestamp.digicert.com /td sha256 dist\*.msi
+      #     env:
+      #       WIN_CERT_BASE64: ${{ secrets.WIN_CERT_BASE64 }}
+      #       WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+      #
+      # See docs/INSTALLATION.md#signing and cli/packaging/windows/README.md.
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-win-x64
+          path: dist/*.msi
+
+  # Two real, native builds — one per architecture — not one cross-compiled build. macos-13
+  # is an Intel (x64) hosted runner; macos-14 is Apple Silicon (arm64). jlink/jpackage always
+  # target the host's own architecture, which is exactly what's needed here.
+  build-macos:
+    needs: [version, build-jars]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-13
+            arch: x64
+          - runner: macos-14
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: server-quarkus-app
+          path: server-quarkus-app
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-jar
+          path: cli-jar
+
+      - name: Assemble jpackage input
+        run: bash cli/packaging/assemble-input.sh cli-jar/resolvr-cli.jar server-quarkus-app build/input
+
+      - name: Secret scan packaged input
+        run: bash cli/packaging/validate-input.sh build/input
+
+      - name: Build jlink runtime image
+        run: bash cli/packaging/build-runtime.sh server-quarkus-app cli-jar/resolvr-cli.jar build/runtime
+
+      - name: Build pkg
+        run: bash cli/packaging/jpackage-macos.sh build/input build/runtime ${{ needs.version.outputs.version }} ${{ matrix.arch }} dist
+
+      # Signing/notarization (not configured — no Apple Developer ID exists in this
+      # repository; none was invented). See docs/INSTALLATION.md#signing and
+      # cli/packaging/macos/README.md for what would be added here.
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos-${{ matrix.arch }}
+          path: dist/*.pkg
+
+  build-linux-x64:
+    needs: [version, build-jars]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: server-quarkus-app
+          path: server-quarkus-app
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-jar
+          path: cli-jar
+
+      - name: Install deb/rpm packaging tools
+        run: sudo apt-get update && sudo apt-get install -y fakeroot rpm
+
+      - name: Assemble jpackage input
+        run: bash cli/packaging/assemble-input.sh cli-jar/resolvr-cli.jar server-quarkus-app build/input
+
+      - name: Secret scan packaged input
+        run: bash cli/packaging/validate-input.sh build/input
+
+      - name: Build jlink runtime image
+        run: bash cli/packaging/build-runtime.sh server-quarkus-app cli-jar/resolvr-cli.jar build/runtime
+
+      - name: Build deb/rpm/tar.gz
+        run: bash cli/packaging/jpackage-linux.sh build/input build/runtime ${{ needs.version.outputs.version }} x64 dist app-image,deb,rpm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux-x64
+          path: |
+            dist/*.deb
+            dist/*.rpm
+            dist/*.tar.gz
+
+  # Real native ARM64 build — no cross-compilation. Requires GitHub-hosted Linux ARM64
+  # runners (ubuntu-24.04-arm) to be available to this repository, which is org/plan-
+  # dependent and was not verified for this specific repository. continue-on-error keeps
+  # this job from blocking the rest of the release if that runner label isn't available —
+  # see docs/INSTALLATION.md#limitations-this-phase. Only tar.gz was requested for this
+  # target (no .deb/.rpm for linux-arm64 in this phase).
+  build-linux-arm64:
+    needs: [version, build-jars]
+    runs-on: ubuntu-24.04-arm
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: server-quarkus-app
+          path: server-quarkus-app
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-jar
+          path: cli-jar
+
+      - name: Assemble jpackage input
+        run: bash cli/packaging/assemble-input.sh cli-jar/resolvr-cli.jar server-quarkus-app build/input
+
+      - name: Secret scan packaged input
+        run: bash cli/packaging/validate-input.sh build/input
+
+      - name: Build jlink runtime image
+        run: bash cli/packaging/build-runtime.sh server-quarkus-app cli-jar/resolvr-cli.jar build/runtime
+
+      - name: Build tar.gz
+        run: bash cli/packaging/jpackage-linux.sh build/input build/runtime ${{ needs.version.outputs.version }} arm64 dist app-image
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux-arm64
+          path: dist/*.tar.gz
+
+  # Runs once Windows/macOS/Linux-x64 succeed. build-linux-arm64 is deliberately not a hard
+  # dependency in effect: its continue-on-error above means this job still runs even if that
+  # one failed (e.g. the runner label was unavailable) — the release just won't include the
+  # arm64 tarball in that case, and the checksums/release notes reflect only what's present.
+  publish:
+    needs: [version, build-windows-x64, build-macos, build-linux-x64, build-linux-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: List staged release assets
+        run: ls -la dist
+
+      - name: Compute checksums
+        working-directory: dist
+        run: sha256sum * > checksums.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/* \
+            --title "Resolvr CLI ${{ needs.version.outputs.version }}" \
+            --notes "Unsigned installers — see docs/INSTALLATION.md for installation, PATH setup, Gatekeeper/SmartScreen workarounds, and known limitations. The linux-arm64 tarball is only present if the ARM64 runner job succeeded (see docs/INSTALLATION.md#limitations-this-phase)."

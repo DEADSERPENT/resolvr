@@ -53,13 +53,15 @@ public final class DoctorCommand implements Command {
                     + "+ (e.g. Temurin) and make sure it's first on PATH, or set JAVA_HOME.");
         }
 
-        if (r.repoRoot().isPresent()) {
-            out.println("[OK]   Repository: " + r.repoRoot().get());
+        if (r.installRoot().isPresent()) {
+            out.println("[OK]   Mode: installed (" + r.installRoot().get() + ")");
+        } else if (r.repoRoot().isPresent()) {
+            out.println("[OK]   Mode: developer checkout (" + r.repoRoot().get() + ")");
         } else {
             problem = true;
-            out.println("[FAIL] Repository: not found");
-            out.println("       Run this from inside a Resolvr checkout, or launch via bin/resolvr "
-                    + "so it can tell the CLI where the repository is.");
+            out.println("[FAIL] Neither an installed copy nor a Resolvr checkout was found.");
+            out.println("       Run this from inside a Resolvr checkout, launch via bin/resolvr, "
+                    + "or run the installed `resolvr` command directly.");
         }
 
         if (r.portInUse()) {
