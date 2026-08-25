@@ -4,7 +4,7 @@
 ./mvnw verify
 ```
 
-53 tests, ~71% instruction / 70% line coverage (JaCoCo report at `target/site/jacoco/index.html` after running `verify`). CI runs the same command on every push/PR via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+168 tests, ~79% instruction / 77% line coverage (JaCoCo report at `target/site/jacoco/index.html` after running `verify`). CI runs the same command on every push/PR via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
 The model records are the main uncovered surface — thin data holders, low risk, a reasonable disclosed gap rather than padding.
 
@@ -20,6 +20,7 @@ Rather than just "does the happy path work," the suite (and a live end-to-end ru
 - GitHub rate-limits the request (429/403) → the `Retry-After` / `X-RateLimit-Reset` header is honored and the call is retried once the window passes, as long as the wait is short; a long wait aborts fast instead of blocking (`RetryingHttpSenderTest`).
 - A PR has more than 100 review threads → cursor pagination walks every page (`GitHubGraphQLClientTest`).
 - `auto_resolve_all` partially fails (one fix commits, another errors) → per-fix results are reported individually rather than the whole batch failing opaquely (`PRReviewToolsConfirmationTest`).
+- CI status flips from `PENDING` to `FAILING` across two `get_ci_status` polls, as it would while an agent waits between calls (`CiStatusServiceTest`).
 
 **Worst case — real failure modes, handled explicitly rather than surfaced as raw errors**
 - The file changed on GitHub since it was last read (someone else pushed a commit between `get_file_content` and `apply_fix`) → GitHub returns HTTP 409, and the client turns that into "the file changed since it was last read — call get_file_content again" instead of a bare API error (`GitHubRestClientTest`). This was also reproduced live: a concurrent commit was pushed to the real test branch, and a follow-up commit using the now-stale sha reliably got a 409 back from GitHub, confirming the assumption the handling is built on.
@@ -28,3 +29,6 @@ Rather than just "does the happy path work," the suite (and a live end-to-end ru
 - The GitHub API is down entirely (persistent 5xx) → retried up to the limit, then fails loudly rather than hanging or silently dropping the operation (`RetryingHttpSenderTest`).
 - An unauthenticated or wrong-key request hits any protected route → rejected with 401 before reaching any business logic (`ApiKeyAuthFilterTest`).
 - A malformed webhook payload arrives with a valid signature → parsed, fails cleanly with 400, doesn't crash the queue (`GitHubWebhookResourceTest`).
+- A failing check's log comes from a non-Actions CI app (job-logs endpoint 404s) → reported as `logAvailable: false` with a fallback `htmlUrl`, not an exception (`GitHubRestClientTest`, `CiStatusServiceTest`).
+- A failing check's log is longer than the configured tail-line/byte cap → excerpt is truncated with `truncated: true` and the original line count, not silently cut or sent whole (`CiStatusServiceTest`).
+- `listCheckRuns` itself fails while polling CI status (GitHub down) → `error` surfaced on the `ci` section rather than fabricated, matching `get_pr_context`'s existing per-section failure handling (`CiStatusServiceTest`).

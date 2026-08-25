@@ -10,6 +10,8 @@
 | `commit_and_push_resolution` | **The approval boundary** — only call after explicit developer approval. Re-verifies everything independently, then commits exactly the approved files and pushes |
 | `resolve_addressed_threads` | Resolves review threads on GitHub — only usable after a successful `commit_and_push_resolution` |
 | `discard_resolution` | Cancels a prepared resolution without committing or pushing anything |
+| `get_ci_status` | Read-only, poll-friendly — CI/check status (overallStatus + per-check detail) for the PR's current remote HEAD. Lighter than `get_pr_context` for repeated polling after a push; does not block |
+| `get_ci_failure_logs` | Read-only — tail-truncated log excerpts for the PR's currently `FAILING` checks, to diagnose without leaving the editor |
 | `poll_pending_reviews` | Webhook mode only — discover PRs with new Copilot review activity queued by an inbound webhook |
 | `fetch_pr_comments` | Get all unresolved threads for a PR, with prompt-ready context |
 | `get_file_content` | Read the current state of a file from the PR branch |
@@ -21,5 +23,14 @@
 | `confirm_fix` | Confirmation mode only — commit one staged fix by its token |
 | `confirm_all_pending_fixes` | Confirmation mode only — commit every staged fix at once |
 | `discard_pending_fix` | Confirmation mode only — cancel a staged fix without committing it |
+
+## `get_pr_context` vs `get_ci_status`
+
+Both surface CI status, but for different moments: `get_pr_context` is the one-shot "give me
+everything" call (threads, comments, diff, commits, CI — all in one request), the right choice
+once per understanding pass. `get_ci_status` returns only CI status and is meant to be called
+repeatedly — e.g. every 15-30s after `commit_and_push_resolution` — without paying for the rest
+of the PR context on every poll. Neither tool blocks or waits; both return whatever GitHub
+reports at the moment of the call.
 
 IDE agent instructions for using these tools live in [`.github/copilot-instructions.md`](../.github/copilot-instructions.md). VS Code and JetBrains MCP client config are checked in at `.vscode/mcp.json` and `.idea/mcp.xml`.

@@ -159,7 +159,7 @@ class PRContextServiceTest {
         rest.changedFiles = List.of(new ChangedFile("Foo.java", 5, 1, "modified", "filesha"));
         rest.commits = List.of(new CommitInfo("c1", "fix: x", "Ada", "2026-01-01T00:00:00Z"));
         graphQL.threads = List.of(threadOf("RT_1", false));
-        rest.checkRuns = List.of(new CheckRun("unit-tests", "completed", "success", null));
+        rest.checkRuns = List.of(new CheckRun(1L, "unit-tests", "completed", "success", null));
 
         Map<String, Object> ctx = service.getContext("/repo");
 
@@ -253,7 +253,7 @@ class PRContextServiceTest {
     @Test
     void ciAllSuccess_overallStatusPassing() {
         discovery.toReturn = discoveryWithOnePr("sha1", "sha1");
-        rest.checkRuns = List.of(new CheckRun("unit-tests", "completed", "success", null));
+        rest.checkRuns = List.of(new CheckRun(1L, "unit-tests", "completed", "success", null));
 
         Map<String, Object> ctx = service.getContext("/repo");
 
@@ -266,8 +266,8 @@ class PRContextServiceTest {
     void ciOneFailure_overallStatusFailing() {
         discovery.toReturn = discoveryWithOnePr("sha1", "sha1");
         rest.checkRuns = List.of(
-                new CheckRun("unit-tests", "completed", "success", null),
-                new CheckRun("build", "completed", "failure", null));
+                new CheckRun(1L, "unit-tests", "completed", "success", null),
+                new CheckRun(2L, "build", "completed", "failure", null));
 
         Map<String, Object> ctx = service.getContext("/repo");
 
@@ -279,7 +279,7 @@ class PRContextServiceTest {
     @Test
     void ciInProgress_overallStatusPending() {
         discovery.toReturn = discoveryWithOnePr("sha1", "sha1");
-        rest.checkRuns = List.of(new CheckRun("unit-tests", "in_progress", null, null));
+        rest.checkRuns = List.of(new CheckRun(1L, "unit-tests", "in_progress", null, null));
 
         Map<String, Object> ctx = service.getContext("/repo");
 

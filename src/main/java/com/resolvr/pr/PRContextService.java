@@ -2,6 +2,7 @@ package com.resolvr.pr;
 
 import com.resolvr.github.GitHubGraphQLClient;
 import com.resolvr.github.GitHubRestClient;
+import com.resolvr.model.CiConclusions;
 import com.resolvr.model.ReviewThread;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -10,7 +11,6 @@ import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * PR Context Engine (spec §8, Phase 2): aggregates everything Copilot needs
@@ -26,11 +26,6 @@ import java.util.Set;
  */
 @ApplicationScoped
 public class PRContextService {
-
-    private static final Set<String> FAILING_CONCLUSIONS =
-            Set.of("failure", "timed_out", "cancelled", "action_required", "stale");
-    private static final Set<String> PASSING_CONCLUSIONS =
-            Set.of("success", "neutral", "skipped");
 
     @Inject
     WorkspacePrContextService workspacePrContext;
@@ -131,20 +126,8 @@ public class PRContextService {
     }
 
     private Map<String, Object> buildCiSummary(List<com.resolvr.model.CheckRun> checks) {
-        String overall;
-        if (checks.isEmpty()) {
-            overall = "UNKNOWN";
-        } else if (checks.stream().anyMatch(c -> c.conclusion() != null && FAILING_CONCLUSIONS.contains(c.conclusion()))) {
-            overall = "FAILING";
-        } else if (checks.stream().anyMatch(c -> !"completed".equals(c.status()))) {
-            overall = "PENDING";
-        } else if (checks.stream().allMatch(c -> c.conclusion() != null && PASSING_CONCLUSIONS.contains(c.conclusion()))) {
-            overall = "PASSING";
-        } else {
-            overall = "UNKNOWN";
-        }
         Map<String, Object> ci = new LinkedHashMap<>();
-        ci.put("overallStatus", overall);
+        ci.put("overallStatus", CiConclusions.overallStatus(checks));
         ci.put("checks", checks);
         return ci;
     }

@@ -235,6 +235,7 @@ public class GitHubRestClient {
             if (!arr.isArray() || arr.isEmpty()) break;
             for (JsonNode c : arr) {
                 runs.add(new CheckRun(
+                        c.path("id").asLong(),
                         c.path("name").asText(null),
                         c.path("status").asText(null),
                         c.path("conclusion").asText(null),
@@ -245,6 +246,29 @@ public class GitHubRestClient {
             page++;
         }
         return runs;
+    }
+
+    // ─── Log text for a Check Run's underlying Actions job ──────────────────────
+
+    /**
+     * Fetches the plain-text log for the Actions job behind a Check Run. Only works when the check
+     * was created by the native GitHub Actions app — for those, the Check Run id doubles as the
+     * Actions job id, so this hits {@code /actions/jobs/{id}/logs} directly with no separate
+     * workflow-run/job lookup. Checks created by third-party apps (CircleCI, Buildkite, etc.) have
+     * no matching Actions job and 404 here — that's reported as absence (Optional.empty()), not an
+     * error, since it's an expected shape of input, not a failure.
+     */
+    public Optional<String> getCheckRunLogText(String owner, String repo, long checkRunId) throws Exception {
+        String url = apiBase + "/repos/" + owner + "/" + repo + "/actions/jobs/" + checkRunId + "/logs";
+        HttpRequest req = request(url).GET().build();
+        HttpResponse<String> resp = RetryingHttpSender.send(http, req);
+        if (resp.statusCode() == 404) {
+            return Optional.empty();
+        }
+        if (resp.statusCode() >= 400) {
+            throw new GitHubApiException(resp.statusCode(), resp.body());
+        }
+        return Optional.of(resp.body());
     }
 
     // ─── Generic "GET a bare JSON array, page until short of per_page" helper ───
