@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -353,16 +354,18 @@ class GitHubRestClientTest {
         startServer();
         stub("GET", "/repos/octocat/hello-world/commits/abc123/check-runs", 200, """
                 {"total_count":2,"check_runs":[
-                  {"name":"unit-tests","status":"completed","conclusion":"success","html_url":"https://x/1"},
-                  {"name":"build","status":"completed","conclusion":"failure","html_url":"https://x/2"}
+                  {"id":111,"name":"unit-tests","status":"completed","conclusion":"success","html_url":"https://x/1"},
+                  {"id":222,"name":"build","status":"completed","conclusion":"failure","html_url":"https://x/2"}
                 ]}
                 """);
 
         var runs = client.listCheckRuns("octocat", "hello-world", "abc123");
 
         assertEquals(2, runs.size());
+        assertEquals(111L, runs.get(0).id());
         assertEquals("unit-tests", runs.get(0).name());
         assertEquals("success", runs.get(0).conclusion());
+        assertEquals(222L, runs.get(1).id());
         assertEquals("failure", runs.get(1).conclusion());
     }
 
@@ -393,6 +396,105 @@ class GitHubRestClientTest {
             sb.append("{\"name\":\"check").append(i).append("\",\"status\":\"completed\",\"conclusion\":\"success\"}");
         }
         return sb.append("]").toString();
+    }
+
+    // ─── getCheckRunLogText (CI failure logs) ──────────────────────────────────
+
+    @Test
+    void getCheckRunLogText_followsRedirectToPlainTextLog() throws Exception {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/repos/octocat/hello-world/actions/jobs/999/logs", exchange -> {
+            exchange.getResponseHeaders().add("Location",
+                    "http://127.0.0.1:" + server.getAddress().getPort() + "/blob-storage/log.txt");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+        });
+        server.createContext("/blob-storage/log.txt", exchange -> {
+            byte[] body = "line1\nline2\nERROR: build failed\n".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "text/plain");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var os = exchange.getResponseBody()) {
+                os.write(body);
+            }
+        });
+        server.start();
+        client = new GitHubRestClient();
+        client.apiBase = "http://127.0.0.1:" + server.getAddress().getPort();
+        client.githubToken = Optional.of("test-token");
+
+        Optional<String> log = client.getCheckRunLogText("octocat", "hello-world", 999);
+
+        assertTrue(log.isPresent());
+        assertTrue(log.get().contains("ERROR: build failed"));
+    }
+
+    @Test
+    void getCheckRunLogText_crossAuthorityRedirect_authorizationHeaderNotForwarded() throws Exception {
+        // GitHub's real /actions/jobs/{id}/logs endpoint redirects to blob storage on a
+        // completely different host than api.github.com. The single-server test above only
+        // proves the redirect is followed — it can't prove the Authorization header (this
+        // client's GitHub token) isn't forwarded to that third-party host, because its
+        // redirect target lives on the same server/port (same authority) as the source.
+        // This test uses two separate local servers on different ports — a genuinely
+        // different authority — and asserts the token never reaches the second one.
+        AtomicReference<String> authHeaderSeenByTarget = new AtomicReference<>("NOT_CALLED");
+
+        HttpServer targetServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        targetServer.createContext("/blob-storage/log.txt", exchange -> {
+            String auth = exchange.getRequestHeaders().getFirst("Authorization");
+            authHeaderSeenByTarget.set(auth == null ? "ABSENT" : "PRESENT:" + auth);
+            byte[] body = "line1\nERROR: build failed\n".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "text/plain");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var os = exchange.getResponseBody()) {
+                os.write(body);
+            }
+        });
+        targetServer.start();
+
+        try {
+            int targetPort = targetServer.getAddress().getPort();
+
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/repos/octocat/hello-world/actions/jobs/999/logs", exchange -> {
+                exchange.getResponseHeaders().add("Location",
+                        "http://127.0.0.1:" + targetPort + "/blob-storage/log.txt");
+                exchange.sendResponseHeaders(302, -1);
+                exchange.close();
+            });
+            server.start();
+            client = new GitHubRestClient();
+            client.apiBase = "http://127.0.0.1:" + server.getAddress().getPort();
+            client.githubToken = Optional.of("test-token");
+
+            Optional<String> log = client.getCheckRunLogText("octocat", "hello-world", 999);
+
+            assertTrue(log.isPresent());
+            assertTrue(log.get().contains("ERROR: build failed"));
+            assertEquals("ABSENT", authHeaderSeenByTarget.get(),
+                    "the cross-authority redirect target must never see this client's GitHub token");
+        } finally {
+            targetServer.stop(0);
+        }
+    }
+
+    @Test
+    void getCheckRunLogText_notFound_returnsEmpty() throws Exception {
+        startServer();
+        stub("GET", "/repos/octocat/hello-world/actions/jobs/999/logs", 404, "{\"message\":\"Not Found\"}");
+
+        Optional<String> log = client.getCheckRunLogText("octocat", "hello-world", 999);
+
+        assertTrue(log.isEmpty(), "a non-Actions check's log lookup should be absence, not an exception");
+    }
+
+    @Test
+    void getCheckRunLogText_serverError_throws() throws Exception {
+        startServer();
+        stub("GET", "/repos/octocat/hello-world/actions/jobs/999/logs", 500, "{\"message\":\"boom\"}");
+
+        assertThrows(GitHubApiException.class,
+                () -> client.getCheckRunLogText("octocat", "hello-world", 999));
     }
 
     @Test

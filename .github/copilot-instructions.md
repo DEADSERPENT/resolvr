@@ -15,6 +15,8 @@ Your job is to fix every unresolved Copilot review comment on a PR, commit the f
 | `commit_and_push_resolution` | Approval boundary — only call after the developer explicitly approves. Commits + pushes exactly the approved files |
 | `resolve_addressed_threads` | Resolve threads on GitHub — only after `commit_and_push_resolution` succeeds |
 | `discard_resolution` | Cancel a prepared resolution — use if the developer rejects it |
+| `get_ci_status` | Read-only, poll-friendly — CI/check status for the current PR's remote HEAD. Call after a push, with your own delay between calls |
+| `get_ci_failure_logs` | Read-only — truncated log excerpts for currently FAILING checks, once get_ci_status reports one |
 | `poll_pending_reviews` | Webhook mode only — find PRs with new reviews queued by an inbound webhook |
 | `fetch_pr_comments` | Get all unresolved threads for a specific PR |
 | `get_file_content` | Read current file BEFORE generating a fix |
@@ -95,9 +97,34 @@ Only after commit_and_push_resolution returns "status": "PUSHED":
 If the push failed or was refused as stale, do NOT resolve any thread.
 ```
 
+### Step 6a — Verify CI (loop back on failure)
+```
+Call: get_ci_status()                (read-only, same workspacePath)
+→ Not a blocking call — it returns immediately with whatever GitHub reports right now.
+  Wait ~15-30s yourself between calls; stop after a bounded number of attempts (e.g. 10)
+  rather than polling forever.
+
+If overallStatus is "PASSING": proceed to Step 7.
+
+If overallStatus is "FAILING":
+  Call: get_ci_failure_logs()
+  → Read the truncated logExcerpt for each failing check (fall back to htmlUrl if
+    logAvailable is false — that check wasn't created by the GitHub Actions app).
+  → Go back to Step 3: fix the problem locally with your own tools.
+  → Repeat Steps 4-6 for the new fix (prepare_resolution_summary → explicit developer
+    approval → commit_and_push_resolution → resolve_addressed_threads). Never call
+    commit_and_push_resolution again without a fresh explicit approval — a CI failure
+    does not grant standing approval for a follow-up push.
+
+If overallStatus is still "PENDING" after your attempt budget:
+  Stop polling. Report that CI is still running and link the checks' htmlUrl — do not
+  block indefinitely.
+```
+
 ### Step 7 — Report
 Provide a summary: how many threads were fixed, what each fix did (one line per fix), test
-results, the commit that was pushed, and any failures and why.
+results, the commit that was pushed, CI's final overallStatus (or that it was still pending
+when you stopped watching), and any failures and why.
 
 ## Rules
 
@@ -111,6 +138,11 @@ results, the commit that was pushed, and any failures and why.
 5. **Resolve after push, never before** — `resolve_addressed_threads` only works once the push
    actually succeeded.
 6. **Descriptive commits** — `fix: address null check in UserService per Copilot review`
+7. **CI is watched, not gated on** — `resolve_addressed_threads` is only gated on a successful
+   push (Rule 5), not on CI passing. A FAILING check after push means loop back to Step 3 for a
+   new fix and a new approval cycle, not that the already-resolved threads should be reopened.
+8. **Never poll forever** — `get_ci_status` doesn't block; you supply the wait between calls and
+   the attempt budget. Stop and report rather than looping indefinitely on a slow or stuck check.
 
 ## Legacy remote-first path (webhook mode only)
 

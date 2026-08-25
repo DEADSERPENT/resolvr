@@ -19,6 +19,7 @@ IDE Agent (Copilot/Claude)  <--MCP/SSE-->  PRReviewTools  <---------+
 - **`RetryingHttpSender`** — shared retry/backoff/rate-limit handling for both GitHub clients: exponential backoff on 5xx and transient I/O failures, honors `Retry-After` / `X-RateLimit-Reset` on 429/403, and aborts fast (rather than blocking) if a wait would exceed 30s.
 - **`ApiKeyAuthFilter`** — global request gate requiring `Authorization: Bearer <RESOLVR_API_KEY>` on every route except `/webhook/github` (HMAC-verified separately) and `/q/health`. See [SECURITY.md](SECURITY.md).
 - **`PendingFixStore`** — in-memory staging area used when `RESOLVR_REQUIRE_CONFIRMATION=true`; holds fixes until an explicit `confirm_fix` call.
+- **`CiStatusService`** (Phase 5) — the CI feedback loop's read side. Reuses `WorkspacePrContextService` discovery and `GitHubRestClient.listCheckRuns`; for a `FAILING` check it fetches the check's Actions job log via `GitHubRestClient.getCheckRunLogText` (the Check Run id doubles as the Actions job id for checks created by the native Actions app) and returns a tail-truncated excerpt. Read-only, non-blocking — no server-side polling or waiting.
 - **`PRReviewTools`** — the MCP tool surface. See [TOOLS.md](TOOLS.md) for the full list.
 
 ## Why this exists
