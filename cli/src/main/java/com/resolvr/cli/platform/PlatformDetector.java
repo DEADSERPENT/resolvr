@@ -33,7 +33,7 @@ public final class PlatformDetector {
         if (name.contains("mac") || name.contains("darwin")) {
             return OperatingSystem.MACOS;
         }
-        if (name.contains("linuz")) {
+        if (name.contains("linux")) {
             return OperatingSystem.LINUX;
         }
         throw new UnsupportedPlatformException("Unsupported operating system: '" + osName
