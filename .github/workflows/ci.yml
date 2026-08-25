@@ -31,6 +31,40 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
+  # The `resolvr` CLI (cli/) is a fully independent Maven module/build from the server
+  # above — its own pom.xml, its own Maven wrapper, no shared reactor. This job runs in
+  # parallel with `build` and cannot affect it either way.
+  cli-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: cli/pom.xml
+
+      - name: Make cli/mvnw executable (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x cli/mvnw
+
+      - name: Build and test CLI (Unix)
+        if: runner.os != 'Windows'
+        working-directory: cli
+        run: ./mvnw --batch-mode --no-transfer-progress test
+
+      - name: Build and test CLI (Windows)
+        if: runner.os == 'Windows'
+        working-directory: cli
+        run: .\mvnw.cmd --batch-mode --no-transfer-progress test
+
   # Publishes a prebuilt image to GHCR on every push to main, once tests pass.
   # Lets anyone deploy resolvr (Docker/Koyeb/etc.) by pulling an image, without
   # cloning the repo or having a Java toolchain.

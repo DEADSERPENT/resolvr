@@ -6,6 +6,9 @@ target/
 # ── Quarkus ──────────────────────────────────────────────────────────────────
 .quarkus/
 
+# ── Resolvr CLI runtime state (PID file, server log — per-checkout, see cli/) ──
+.resolvr/
+
 # ── Java ─────────────────────────────────────────────────────────────────────
 *.class
 *.jar

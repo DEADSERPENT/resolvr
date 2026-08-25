@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+# resolvr — cross-platform launcher for the Resolvr CLI.
+#
+# This script's ONLY job is finding a JVM and handing off to the CLI jar — every actual
+# behavior (status/doctor/start/stop/restart/dev) lives in Java under cli/src, so it's
+# testable the same way on every OS. Works under bash, zsh, and any POSIX /bin/sh (macOS,
+# Linux). Uses only POSIX shell builtins (dirname, cd, pwd, test) — no grep/sed/awk/curl/kill.
+
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CLI_JAR="$REPO_ROOT/cli/target/resolvr-cli.jar"
+
+if [ ! -f "$CLI_JAR" ]; then
+  echo "ERROR: Resolvr CLI is not built yet." >&2
+  echo "  Build it with:" >&2
+  echo "    cd \"$REPO_ROOT/cli\" && ./mvnw package -DskipTests" >&2
+  exit 1
+fi
+
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  JAVA_BIN="$JAVA_HOME/bin/java"
+else
+  JAVA_BIN="java"
+fi
+
+exec "$JAVA_BIN" -Dresolvr.repo.root="$REPO_ROOT" -jar "$CLI_JAR" "$@"
