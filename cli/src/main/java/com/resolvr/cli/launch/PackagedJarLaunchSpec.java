@@ -28,13 +28,16 @@ public final class PackagedJarLaunchSpec implements LaunchSpec {
 
     @Override
     public List<String> command() {
+        // -Dquarkus.http.port must come BEFORE -jar: once `java -jar <jar>` is on the
+        // command line, everything after the jar path is a program argument, not a JVM
+        // system property — a -D flag placed after -jar is silently ignored.
         List<String> cmd = new java.util.ArrayList<>();
         cmd.add(javaExecutable);
-        cmd.add("-jar");
-        cmd.add(jarPath(repoRoot).toString());
         if (port != null) {
             cmd.add("-Dquarkus.http.port=" + port);
         }
+        cmd.add("-jar");
+        cmd.add(jarPath(repoRoot).toString());
         return List.copyOf(cmd);
     }
 

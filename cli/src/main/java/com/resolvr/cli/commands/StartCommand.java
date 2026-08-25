@@ -1,6 +1,7 @@
 package com.resolvr.cli.commands;
 
-import com.resolvr.cli.launch.JavaExecutableLocator;
+import com.resolvr.cli.install.ResolvedRuntime;
+import com.resolvr.cli.install.RuntimeResolver;
 import com.resolvr.cli.launch.LaunchSpec;
 import com.resolvr.cli.launch.PackagedJarLaunchSpec;
 import com.resolvr.cli.net.HealthChecker;
@@ -22,10 +23,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 
-/** `resolvr start` — runs the already-built packaged server jar as a background subprocess,
- * waits for /q/health, and reports success or a clean diagnostic. Does not build anything
- * (that's `resolvr dev`'s job) and does not touch RESOLVR_API_KEY/GITHUB_TOKEN — it runs the
- * server exactly as configured in the environment, fail-closed behavior included. */
+/** `resolvr start` — runs the server as a background subprocess (the bundled server if
+ * installed, or the packaged jar in a developer checkout if not), waits for /q/health, and
+ * reports success or a clean diagnostic. Does not build anything (that's `resolvr dev`'s job,
+ * checkout-only) and does not touch RESOLVR_API_KEY/GITHUB_TOKEN — it runs the server exactly
+ * as configured in the environment, fail-closed behavior included, in both modes. */
 public final class StartCommand implements Command {
 
     private final HealthChecker healthChecker;
@@ -48,27 +50,31 @@ public final class StartCommand implements Command {
 
     @Override
     public int run(PrintStream out, String[] args) {
-        Path repoRoot;
+        int port = PortResolver.resolveFromEnvironment();
+
+        ResolvedRuntime runtime;
         try {
-            repoRoot = RepoLocator.locate();
+            runtime = RuntimeResolver.resolve(port);
         } catch (RepoLocator.RepoNotFoundException e) {
             out.println("ERROR: " + e.getMessage());
             return 1;
         }
 
-        Path jar = PackagedJarLaunchSpec.jarPath(repoRoot);
-        if (!Files.isRegularFile(jar)) {
-            out.println("ERROR: packaged server jar not found at " + jar);
-            out.println("       Build it first (from " + repoRoot + "): ./mvnw package -DskipTests");
-            out.println("       Or use `resolvr dev` for a live-reload dev server that builds automatically.");
-            return 1;
+        if (!runtime.installed()) {
+            // Installed mode already guarantees the bundled jar exists (verified by
+            // InstallationLocator.tryLocate()) — this check only applies to a checkout,
+            // where stateDir() is the repo root (see RuntimeResolver.resolveCheckout).
+            Path jar = PackagedJarLaunchSpec.jarPath(runtime.stateDir());
+            if (!Files.isRegularFile(jar)) {
+                out.println("ERROR: packaged server jar not found at " + jar);
+                out.println("       Build it first (from " + runtime.stateDir() + "): ./mvnw package -DskipTests");
+                out.println("       Or use `resolvr dev` for a live-reload dev server that builds automatically.");
+                return 1;
+            }
         }
 
-        int port = PortResolver.resolveFromEnvironment();
-        String javaExecutable = JavaExecutableLocator.locateCurrent();
-        LaunchSpec spec = new PackagedJarLaunchSpec(repoRoot, javaExecutable, port);
-
-        ServerProcessManager manager = newManager(repoRoot);
+        LaunchSpec spec = runtime.launchSpec();
+        ServerProcessManager manager = newManager(runtime.stateDir());
         StartOutcome outcome;
         try {
             outcome = manager.start(spec);
@@ -111,9 +117,11 @@ public final class StartCommand implements Command {
         return 1;
     }
 
-    static ServerProcessManager newManager(Path repoRoot) {
-        PidFile pidFile = new PidFile(ResolvrPaths.pidFilePath(repoRoot));
-        return new ServerProcessManager(pidFile, ResolvrPaths.logFilePath(repoRoot),
+    /** Shared by StopCommand/DevCommand too — takes any base dir (a repo root, or the
+     * installed-mode state dir); ResolvrPaths appends .resolvr/ under it either way. */
+    static ServerProcessManager newManager(Path baseDir) {
+        PidFile pidFile = new PidFile(ResolvrPaths.pidFilePath(baseDir));
+        return new ServerProcessManager(pidFile, ResolvrPaths.logFilePath(baseDir),
                 Duration.ofSeconds(3), Duration.ofSeconds(10));
     }
 
