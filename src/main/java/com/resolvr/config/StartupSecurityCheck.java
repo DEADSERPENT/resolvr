@@ -28,7 +28,7 @@ public class StartupSecurityCheck {
         }
         List<String> problems = problems(apiKey.orElse(null));
         if (!problems.isEmpty()) {
-            throw new IllegalStateException("Refusing to start: configuration.\n  - "
+            throw new IllegalStateException("Refusing to start: insecure production configuration.\n  - "
                     + String.join("\n  - ", problems));
         }
     }
