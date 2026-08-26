@@ -16,8 +16,10 @@ Both modes run the exact same server code, in the exact same fail-closed launch 
 ## Windows installation
 
 1. Download `resolvr-cli-<version>-win-x64.msi` from the release's assets.
-2. Run it. It installs under `Program Files\Resolvr` by default (the installer's directory
-   chooser lets you pick a different location) and adds Start Menu / desktop shortcuts.
+2. Run it. It installs under `Program Files\resolvr` by default — the directory name matches
+   the packaged application name exactly (Windows paths are case-insensitive, so this doesn't
+   affect anything). The installer's directory chooser lets you pick a different location, and
+   it adds Start Menu / desktop shortcuts.
 3. Open a terminal and run `resolvr doctor` (see [PATH](#path) below if that's not found yet).
 
 The installer is currently **unsigned** — see [Signing](#signing). Windows SmartScreen will
@@ -28,8 +30,10 @@ show an "unrecognized publisher" warning; choose "More info" → "Run anyway" to
 1. Download `resolvr-cli-<version>-macos-x64.pkg` (Intel) or
    `resolvr-cli-<version>-macos-arm64.pkg` (Apple Silicon) — use `uname -m` if unsure
    (`x86_64` → x64, `arm64` → arm64).
-2. Run it. It installs under `/Applications/resolvr` (a jpackage app-image, not a `.app`
-   bundle you'd launch by double-clicking — this is a CLI tool).
+2. Run it. It installs a jpackage-produced application bundle at `/Applications/resolvr.app`
+   — macOS requires the `.app` bundle format even for a console-only tool like this one. The
+   `resolvr` binary itself lives at `/Applications/resolvr.app/Contents/MacOS/resolvr`; there's
+   nothing here you'd double-click from Finder.
 3. Open a terminal and run `resolvr doctor` (see [PATH](#path) below).
 
 The package is currently **unsigned and not notarized** — see [Signing](#signing). Gatekeeper
@@ -78,13 +82,13 @@ on Windows, a postinst script on Linux) that's out of scope for this phase. Add 
 | Platform | Binary | Suggested PATH entry |
 |---|---|---|
 | Windows | `<install-dir>\resolvr.exe` | Add `<install-dir>` to your user or system `PATH` (Settings → System → About → Advanced system settings → Environment Variables) |
-| macOS | `/Applications/resolvr/bin/resolvr` | `echo 'export PATH="/Applications/resolvr/bin:$PATH"' >> ~/.zshrc` |
+| macOS | `/Applications/resolvr.app/Contents/MacOS/resolvr` | `echo 'export PATH="/Applications/resolvr.app/Contents/MacOS:$PATH"' >> ~/.zshrc` |
 | Linux (deb/rpm) | `/opt/resolvr/bin/resolvr` | `echo 'export PATH="/opt/resolvr/bin:$PATH"' >> ~/.bashrc` |
 | Linux (portable tarball) | `<extracted-dir>/bin/resolvr` | same, pointed at wherever you extracted it |
 
 Until then, you can always invoke the full path directly.
 
-## start / stop / status / doctor
+## start / stop / status / doctor / restart
 
 Identical commands and output shape in both installed and developer-checkout mode:
 
@@ -93,6 +97,7 @@ resolvr doctor     # environment/config sanity check — run this first
 resolvr start       # starts the server as a background process, waits for /q/health
 resolvr status       # process, health, port, MCP endpoint, RESOLVR_API_KEY/GITHUB_TOKEN presence
 resolvr stop        # stops the process Resolvr itself started
+resolvr restart      # stop (tolerating "already stopped"), then start
 ```
 
 `status`/`doctor` report which mode they detected — `Mode: installed (<install root>)` or
@@ -143,7 +148,7 @@ to `gh auth token`. The installer does not touch GitHub credentials in any way.
 
 - **Windows**: Settings → Apps → "resolvr" → Uninstall (or the MSI itself, run again).
 - **macOS**: no uninstaller is bundled (jpackage `.pkg` doesn't ship one) — remove
-  `/Applications/resolvr` manually: `sudo rm -rf /Applications/resolvr`.
+  `/Applications/resolvr.app` manually: `sudo rm -rf /Applications/resolvr.app`.
 - **Linux (deb)**: `sudo dpkg -r resolvr`
 - **Linux (rpm)**: `sudo rpm -e resolvr`
 - **Linux (portable tarball)**: delete the extracted directory.
@@ -174,6 +179,45 @@ installers replace the previous install; for the portable tarball, extract the n
 checkout) — an installed binary is never inside a git checkout, so there's no real ambiguity.
 `RepoLocator`, `PackagedJarLaunchSpec`, and `QuarkusDevLaunchSpec` are unmodified by this
 phase and continue to handle the checkout path exactly as before.
+
+## Building installers locally
+
+The Windows `.msi` build (`jpackage --type msi`) requires the WiX Toolset
+(`candle.exe`/`light.exe`) on `PATH`. GitHub's `windows-latest` hosted runners have it
+preinstalled; a local dev machine often doesn't. To build and smoke-test a packaged CLI locally
+without WiX, build a plain jpackage **app-image** instead — the same input/runtime staging
+steps `release-cli.yml` uses, just with `--type app-image` in the final jpackage call rather
+than `msi`/`pkg`/`deb`/`rpm`:
+
+```sh
+./mvnw package -DskipTests                    # server (target/quarkus-app)
+(cd cli && ./mvnw package -DskipTests)         # CLI jar (cli/target/resolvr-cli.jar)
+
+bash cli/packaging/assemble-input.sh cli/target/resolvr-cli.jar target/quarkus-app build/input
+bash cli/packaging/validate-input.sh build/input
+bash cli/packaging/build-runtime.sh target/quarkus-app cli/target/resolvr-cli.jar build/runtime
+```
+
+Then invoke `jpackage --type app-image` directly against `build/input` and `build/runtime`,
+reusing the `--name`/`--main-jar`/`--main-class` flags from `cli/packaging/jpackage-windows.ps1`
+(or the macOS/Linux equivalents). On Windows use the `.ps1` scripts
+(`assemble-input.ps1`/`build-runtime.ps1`) instead of the `.sh` ones.
+
+This is how a real bug was caught during development: `InstalledJarLaunchSpec` originally
+placed `-Dquarkus.http.port` *after* `-jar` on the command line, which the JVM silently treats
+as a program argument instead of a system property once `-jar` is present — so the port
+override was a complete no-op. Unit tests alone didn't catch it; testing against a real jlink
+runtime image and a real jpackage-built launcher did. See the regression coverage in
+`InstalledJarLaunchSpecTest`/`PackagedJarLaunchSpecTest`.
+
+**Verification status of the layout `resolvr` expects from an installed copy:** `InstallationLocator`
+computes installed-mode paths from `jpackage.app-path`, assuming jpackage's standard app-image
+layout per OS (`<root>\resolvr.exe` / `<root>\app\` / `<root>\runtime\bin\java.exe` on Windows;
+`<root>/bin/resolvr` / `lib/app/` / `lib/runtime/` on Linux; `Contents/MacOS/resolvr` /
+`Contents/app/` / `Contents/runtime/Contents/Home/` on macOS). Only the **Windows** shape has
+been confirmed against a real local build as described above. The **Linux and macOS** shapes
+follow jpackage's documented conventions for those platforms but have not yet been verified
+against a real local build in this project.
 
 ## Security
 
