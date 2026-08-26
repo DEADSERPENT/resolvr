@@ -1,12 +1,6 @@
 # Resolvr
 
-[![CI](https://github.com/DEADSERPENT/resolvr/actions/workflows/ci.yml/badge.svg)](https://github.com/DEADSERPENT/resolvr/actions/workflows/ci.yml)
-
-[![Latest Release](https://img.shields.io/github/v/release/DEADSERPENT/resolvr)](https://github.com/DEADSERPENT/resolvr/releases/latest)
-
-![MCP](https://img.shields.io/badge/protocol-MCP-6c5ce7)
-
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
+[![CI](https://github.com/DEADSERPENT/resolvr/actions/workflows/ci.yml/badge.svg)](https://github.com/DEADSERPENT/resolvr/actions/workflows/ci.yml) [![Latest Release](https://img.shields.io/github/v/release/DEADSERPENT/resolvr)](https://github.com/DEADSERPENT/resolvr/releases/latest) ![MCP](https://img.shields.io/badge/protocol-MCP-6c5ce7) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **The bridge between a GitHub PR review and the coding agent that fixes it.**
 
